@@ -21,7 +21,7 @@
         "magento/module-backend": ">=101.0",        
         "magento/module-catalog-inventory": ">=100.3",        
         "magento/module-customer": ">=102.0",
-        "swissup/module-core": "^1.12.24"
+        "swissup/module-core": "^1.12.26"
     },
     "autoload": {
         "files": [ "registration.php" ],
