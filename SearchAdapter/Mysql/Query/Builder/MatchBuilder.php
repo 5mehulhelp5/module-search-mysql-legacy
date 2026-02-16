@@ -60,22 +60,33 @@ class MatchBuilder implements QueryInterface
     protected $preprocessors;
 
     /**
+     * @var \Magento\Framework\App\Config\ScopeConfigInterface
+     * @since 1.1.12
+     */
+    private $scopeConfig;
+
+    /**
      * @param ResolverInterface $resolver
      * @param Fulltext $fulltextHelper
      * @param string $fulltextSearchMode
      * @param PreprocessorInterface[] $preprocessors
+     * @param \Magento\Framework\App\Config\ScopeConfigInterface|null $scopeConfig
      */
     public function __construct(
         ResolverInterface $resolver,
         Fulltext $fulltextHelper,
         $fulltextSearchMode = Fulltext::FULLTEXT_MODE_BOOLEAN,
-        array $preprocessors = []
+        array $preprocessors = [],
+        \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig = null
     ) {
         $this->resolver = $resolver;
         $this->replaceSymbols = str_split(self::SPECIAL_CHARACTERS, 1);
         $this->fulltextHelper = $fulltextHelper;
         $this->fulltextSearchMode = $fulltextSearchMode;
         $this->preprocessors = $preprocessors;
+        $this->scopeConfig = $scopeConfig
+            ?: \Magento\Framework\App\ObjectManager::getInstance()
+                ->get(\Magento\Framework\App\Config\ScopeConfigInterface::class);
     }
 
     /**
@@ -123,6 +134,36 @@ class MatchBuilder implements QueryInterface
     }
 
     /**
+     * Get string prefix based on search mode configuration
+     *
+     * @param string $conditionType
+     * @return string
+     * @since 1.1.12
+     */
+    private function getStringPrefix($conditionType)
+    {
+        $mode = $this->scopeConfig->getValue(
+            'catalog/search/lmysql_query_mode',
+            \Magento\Store\Model\ScopeInterface::SCOPE_STORE
+        ) ?: \Swissup\SearchMysqlLegacy\Model\Config\Source\SearchMode::MODE_OR;
+
+        if ($mode === \Swissup\SearchMysqlLegacy\Model\Config\Source\SearchMode::MODE_AND) {
+            // AND logic: all words must match (Elasticsearch-like behavior)
+            return $conditionType === BoolExpression::QUERY_CONDITION_NOT ? '-' : '+';
+        }
+
+        // OR logic: any word can match (Original Magento 2.3.x behavior)
+        $stringPrefix = '';
+        if ($conditionType === BoolExpression::QUERY_CONDITION_MUST) {
+            $stringPrefix = '+';
+        } elseif ($conditionType === BoolExpression::QUERY_CONDITION_NOT) {
+            $stringPrefix = '-';
+        }
+
+        return $stringPrefix;
+    }
+
+    /**
      * Prepare query value for build function.
      *
      * @param string $queryValue
@@ -136,12 +177,7 @@ class MatchBuilder implements QueryInterface
             $queryValue = $preprocessor->process($queryValue);
         }
 
-        $stringPrefix = '';
-        if ($conditionType === BoolExpression::QUERY_CONDITION_MUST) {
-            $stringPrefix = '+';
-        } elseif ($conditionType === BoolExpression::QUERY_CONDITION_NOT) {
-            $stringPrefix = '-';
-        }
+        $stringPrefix = $this->getStringPrefix($conditionType);
 
         $queryValues = explode(' ', $queryValue);
 

@@ -72,3 +72,29 @@ You can change your current search engine using:
 ```
 bin/magento config:set catalog/search/engine 'lmysql'
 ```
+
+### Configuration
+
+#### Multi-word Search Logic
+
+**Location:** Stores > Configuration > Catalog > Catalog Search > Multi-word Search Logic (MySQL Legacy)
+
+Control how multi-word searches are interpreted:
+
+**OR Mode (Default)** - Original Magento 2.3 behavior
+- Search: "red bag"
+- Finds: Products containing "red" OR "bag"
+- Result: More products, less precise matches
+
+**AND Mode (Recommended)** - Elasticsearch-like behavior
+- Search: "red bag"  
+- Finds: Products containing "red" AND "bag"
+- Result: Fewer products, more relevant matches
+
+**Note:** Clear cache after changing this setting for immediate effect.
+
+```bash
+bin/magento cache:clean config
+```
+
+**Future:** Based on community feedback, AND mode may become the default in version 2.0.
